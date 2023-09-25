@@ -5,6 +5,7 @@ See demo.lss (you only need to adjust function: GetDatabase that returns server 
 
 How to use the library DbUtils
 
+```
 Dim session As NotesSession
 Dim database As NotesDatabase
 Dim dbUtils As DbUtils
@@ -31,3 +32,4 @@ Print "3) setDbReplicaIdByTimeDate"
 Print "before: " & database.replicaID
 Call dbUtils.setDbReplicaIdByString(database.server, database.filepath, "1234567887654321")
 Print "after " & database.replicaID
+```
