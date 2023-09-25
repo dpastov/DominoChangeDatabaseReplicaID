@@ -3,7 +3,7 @@ Change Domino database ReplicaId (C Notes API)
 
 See demo.lss
 
-Example of DbUtils usage
+Example of DbUtils usage in an agent
 
 ```
 Option Public
@@ -36,7 +36,7 @@ Sub Initialize
 	Call dbUtils.setDbReplicaIdByTimeDate(database.server, database.filepath, timedate)
 	Print "after " & database.replicaID
 	
-	Print "3) setDbReplicaIdByTimeDate"
+	Print "3) setDbReplicaIdByString"
 	Print "before: " & database.replicaID
 	Call dbUtils.setDbReplicaIdByString(database.server, database.filepath, "1234567887654321")
 	Print "after " & database.replicaID
