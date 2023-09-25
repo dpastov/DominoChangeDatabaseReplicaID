@@ -20,7 +20,7 @@ Sub Initialize
 	Dim timedate As TIMEDATE
 	
 	Set session = New NotesSession
-	Set database = session.Getdatabase("domino-1.dmytro.cloud/DmytroDev", "test2.nsf", false)
+	Set database = session.Getdatabase("hexagon/explicants", "test2.nsf", false)
 
 	Set dbUtils = New DbUtils(session)
 	
