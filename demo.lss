@@ -5,7 +5,7 @@ Public Const W32_LIB = {nnotes.dll}
 Public Const LINUX_LIB = {libnotes.so}
 
 Type TIMEDATE
-	Innards(0 to 1) As Long
+	Innards(0 To 1) As Long
 End Type
 
 Type DBREPLICAINFO
@@ -15,7 +15,7 @@ Type DBREPLICAINFO
 	Cutoff As TIMEDATE			'Replication cutoff date
 End Type
 
-Declare sub W32_OSCurrentTimeDate Lib W32_LIB Alias "OSCurrentTIMEDATE"(Ret As TIMEDATE)
+Declare Sub W32_OSCurrentTimeDate Lib W32_LIB Alias "OSCurrentTIMEDATE"(Ret As TIMEDATE)
 Declare Function W32_NSFDbOpen Lib W32_LIB Alias "NSFDbOpen" (ByVal dbName As String, hdb As Long) As Integer
 Declare Function W32_NSFDbClose Lib W32_LIB Alias "NSFDbClose" (ByVal hdb As Long) As Integer
 Declare Function W32_NSFDbReplicaInfoGet Lib W32_LIB Alias "NSFDbReplicaInfoGet" (ByVal hdb As Long, hdbr As DBREPLICAINFO) As Integer
@@ -27,110 +27,110 @@ Declare Function LINUX_NSFDbClose Lib LINUX_LIB Alias "NSFDbClose" (ByVal hdb As
 Declare Function LINUX_NSFDbReplicaInfoGet Lib LINUX_LIB Alias "NSFDbReplicaInfoGet" (ByVal hdb As Long, hdbr As DBREPLICAINFO) As Integer
 Declare Function LINUX_NSFDbReplicaInfoSet Lib LINUX_LIB Alias "NSFDbReplicaInfoSet" (ByVal hdb As Long, hdbr As DBREPLICAINFO) As Integer
 
-Sub Initialize
-	On Error GoTo errh
-
-	Dim ws As NotesUIWorkspace
-	Dim session As NotesSession
-	Dim replicaInfo As DBREPLICAINFO
-	Dim replicaID As TIMEDATE
-	Dim var As Variant
-	Dim server As String
-	Dim filePath As String
-	Dim hDb As Long
-	Dim rc As Integer
-	Dim IS_WINDOWS As Boolean
+Class DbUtils
+	Private m_session As NotesSession
+	Private m_is_windows As Boolean
 	
-	Set session = New NotesSession
-	IS_WINDOWS = InStr(session.Platform, "Windows") > 0
-
-	'function that return server!!filepath
-	Call getDatabase(session, server, filePath)
+	Sub New(session As NotesSession)
+		Set m_session = session
+		m_is_windows = InStr(session.Platform, "Windows") > 0
+	End Sub
 	
-	'2. OPEN DATABASE: NSFDbOpen
-	If server = "" Then
+	Public Property Get IS_WINDOWS As Boolean
+		IS_WINDOWS = m_is_windows
+	End Property
+	
+	Public Function setDbReplicaIdRandom(server As String, filePath As String) As String
+		Dim replicaID As TIMEDATE
+		
 		If IS_WINDOWS Then
-			rc = W32_NSFDbOpen(filePath, hDb)
+			Call W32_OSCurrentTimeDate(replicaID)
 		Else
-			rc = LINUX_NSFDbOpen(filePath, hDb)
+			Call LINUX_OSCurrentTimeDate(ReplicaID)
 		End If
-	Else
-		If IS_WINDOWS Then
-			rc = W32_NSFDbOpen(server & "!!" & filePath, hDb)
-		Else
-			rc = LINUX_NSFDbOpen(server & "!!" & filePath, hDb)
-		End If
-	End If
-
-	If rc <> 0 Then
-		MessageBox "Couldn't open database: " & filePath
-		Exit Sub
-	End If
-
-	'3. READ REPLICAID: NSFDbReplicaInfoGet
-	If IS_WINDOWS Then
-		rc = W32_NSFDbReplicaInfoGet(hDb, replicaInfo)
-	Else
-		rc = LINUX_NSFDbReplicaInfoGet(hDb, replicaInfo)
-	End If
-
-	If rc <> 0 Then
-		MessageBox "Couldn't get Replica Info"
-	End If
-
-	'4. GET CURRENT TIMEDATE (TO BUILD NEW REPLICAID): OSCurrentTimeDate
-	If IS_WINDOWS Then
-		Call W32_OSCurrentTimeDate(ReplicaID)
-	Else
-		Call LINUX_OSCurrentTimeDate(ReplicaID)
-	End If
-	ReplicaInfo.ID = ReplicaID
+		
+		Call setDbReplica(server, filePath, replicaID)
+	End Function
 	
-	'5. SET NEW REPLICAID: NSFDbReplicaInfoSet
-	If IS_WINDOWS Then
-		rc = W32_NSFDbReplicaInfoSet(hDb, replicaInfo)
-	Else
-		rc = LINUX_NSFDbReplicaInfoSet(hDb, replicaInfo)
-	End If
+	Public Function setDbReplicaIdByTimeDate(server As String, filePath As String, replicaID As TIMEDATE)
+		Call setDbReplica(server, filePath, replicaID)
+	End Function
+	
+	Public Function setDbReplicaIdByString(server As String, filePath As String, ReplicaIDString As String)
+		Dim replicaID As TIMEDATE
+		
+		replicaID.Innards(0) = Val("&H" & Right(ReplicaIDString, 8))
+		replicaID.Innards(1) = Val("&H" & Left(ReplicaIDString, 8))
+		
+		Call setDbReplica(server, filePath, replicaID)
+	End Function
+	
+	Private Function setDbReplica(server As String, filePath As String, replicaID As TIMEDATE)
+		Dim replicaInfo As DBREPLICAINFO
+		Dim var As Variant
+		Dim hDb As Long
+		Dim rc As Integer
+		
+		'2. OPEN DATABASE: NSFDbOpen
+		If server = "" Then
+			If IS_WINDOWS Then
+				rc = W32_NSFDbOpen(filePath, hDb)
+			Else
+				rc = LINUX_NSFDbOpen(filePath, hDb)
+			End If
+		Else
+			If IS_WINDOWS Then
+				rc = W32_NSFDbOpen(server & "!!" & filePath, hDb)
+			Else
+				rc = LINUX_NSFDbOpen(server & "!!" & filePath, hDb)
+			End If
+		End If
 
-	'6. READ REPLICAID: NSFDbReplicaInfoGet
-	If IS_WINDOWS Then
-		rc = W32_NSFDbReplicaInfoGet(hDb, replicaInfo)
-	Else
-		rc = LINUX_NSFDbReplicaInfoGet(hDb, replicaInfo)
-	End If
+		If rc <> 0 Then
+			Error 9001, "Couldn't open database: " & filePath
+		End If
 
-	If rc <> 0 Then
-		MessageBox "Couldn't get Replica Info"
-	Else
-		MessageBox("Replica ID of "+ filePath + " has been set to: " + Right("0000000" + Hex(replicaInfo.ID.Innards(1)), 8) + ":" + Right("0000000" + Hex(replicaInfo.ID.Innards(0)), 8))
-	End If
+		'3. READ REPLICAID: NSFDbReplicaInfoGet
+		If IS_WINDOWS Then
+			rc = W32_NSFDbReplicaInfoGet(hDb, replicaInfo)
+		Else
+			rc = LINUX_NSFDbReplicaInfoGet(hDb, replicaInfo)
+		End If
 
-	If IS_WINDOWS Then
-		rc = W32_NSFDbClose(hDb)
-	Else
-		rc = LINUX_NSFDbClose(hDb)
-	End If
+		If rc <> 0 Then
+			Error 9001, "Couldn't get Replica Info"
+		End If
 
-	Exit sub
-errh:
-	MsgBox Error$ & " at line: " & CStr(erl)
-	Exit sub
+		'4. GET CURRENT TIMEDATE (TO BUILD NEW REPLICAID): OSCurrentTimeDate
+		ReplicaInfo.ID = ReplicaID
+		
+		'5. SET NEW REPLICAID: NSFDbReplicaInfoSet
+		If IS_WINDOWS Then
+			rc = W32_NSFDbReplicaInfoSet(hDb, replicaInfo)
+		Else
+			rc = LINUX_NSFDbReplicaInfoSet(hDb, replicaInfo)
+		End If
+
+		'6. READ REPLICAID: NSFDbReplicaInfoGet
+		If IS_WINDOWS Then
+			rc = W32_NSFDbReplicaInfoGet(hDb, replicaInfo)
+		Else
+			rc = LINUX_NSFDbReplicaInfoGet(hDb, replicaInfo)
+		End If
+
+		If rc <> 0 Then
+			Error 9001, "Couldn't get Replica Info"
+		End If
+
+'		MessageBox("Replica ID of "+ filePath + " has been set to: " + Right("0000000" + Hex(replicaInfo.ID.Innards(1)), 8) + ":" + Right("0000000" + Hex(replicaInfo.ID.Innards(0)), 8))
+
+		If IS_WINDOWS Then
+			rc = W32_NSFDbClose(hDb)
+		Else
+			rc = LINUX_NSFDbClose(hDb)
+		End If
+	End Function
+End Class
+Sub Terminate
+	
 End Sub
-
-Private Function GetDatabase(session As NotesSession, server As String, filePath As String) As NotesDatabase
-	Dim ws As NotesUIWorkspace
-	Dim var As Variant
-	
-	If session.Isonserver Then
-		server = "hexagon/explicants"
-		filePath = "test1.nsf"
-		Exit function
-	End If
-
-	Set ws = New NotesUIWorkspace
-	var = ws.Prompt(13, "Change ReplicaID Dialog", "Choose...", "")
-	If Not IsArray(var) Then Exit function
-	server = var(0)
-	filePath = var(1)
-End Function
